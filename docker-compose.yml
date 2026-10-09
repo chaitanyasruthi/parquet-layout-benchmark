@@ -1,0 +1,39 @@
+# Usage:
+#   docker compose run --rm bench                 # ROWS=1000000 make bench
+#   ROWS=5000000 docker compose run --rm bench
+#   docker compose run --rm test                  # unit tests
+# Data and results are bind-mounted so they survive the container and can be inspected.
+x-common: &common
+  build: .
+  image: parquet-layout-benchmark:latest
+  environment:
+    ROWS: ${ROWS:-1000000}
+    SEED: ${SEED:-42}
+    COLD_RUNS: ${COLD_RUNS:-5}
+    WARM_RUNS: ${WARM_RUNS:-5}
+    WITH_EXTRAS: ${WITH_EXTRAS:-1}
+    DUCKDB_THREADS: ${DUCKDB_THREADS:-}
+  healthcheck:
+    test: ["CMD", "python", "-c", "import duckdb, pyarrow, psutil; duckdb.sql('select 1')"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 10s
+
+services:
+  bench:
+    <<: *common
+    command: ["make", "bench"]
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+
+  test:
+    <<: *common
+    command: ["make", "test"]
+
+  analyze:
+    <<: *common
+    command: ["make", "analyze"]
+    volumes:
+      - ./results:/app/results
